@@ -1,36 +1,38 @@
-# audio_to_text_streamlit.py
-# Copyright © 2025 Abdessamad Karim
-# All rights reserved.
-
-import whisper
 import streamlit as st
+import whisper
+import tempfile
 
-st.set_page_config(page_title="Audio to Text by Karim", layout="wide")
+# Configuration de la page
+st.set_page_config(page_title="Transcription Audio", layout="centered")
 
-st.title("🎤 Audio → Text Transcription")
+st.title("🎙️ Application de Transcription Audio avec Whisper")
 
-# Upload audio file
-audio_file = st.file_uploader("Select an audio file", type=["mp3", "wav", "m4a"])
+# Charger le modèle (base ou small/medium/large selon la puissance dispo)
+@st.cache_resource
+def load_model():
+    return whisper.load_model("base")
 
-# Load model (lazy load)
-if "model" not in st.session_state:
-    with st.spinner("Loading Whisper model (base)..."):
-        st.session_state.model = whisper.load_model("base")
+model = load_model()
 
-model = st.session_state.model
+# Uploader fichier audio
+uploaded_file = st.file_uploader(
+    "Choisissez un fichier audio à transcrire",
+    type=["mp3", "wav", "m4a"]
+)
 
-if audio_file is not None:
-    st.audio(audio_file, format="audio/mp3")
-    
-    if st.button("Transcribe"):
-        with st.spinner("Transcribing..."):
-            # Save uploaded file temporarily
-            with open("temp_audio", "wb") as f:
-                f.write(audio_file.getbuffer())
-            
-            # Transcribe
-            result = model.transcribe("temp_audio")
-            transcription = result["text"]
-            
-            st.success("Transcription completed!")
-            st.text_area("Transcription", transcription, height=300)
+if uploaded_file is not None:
+    st.audio(uploaded_file, format="audio/wav")
+
+    # Sauvegarde temporaire du fichier
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
+        tmp_file.write(uploaded_file.read())
+        temp_audio_path = tmp_file.name
+
+    st.write("⏳ Transcription en cours...")
+
+    # Transcription avec Whisper
+    result = model.transcribe(temp_audio_path, fp16=False)
+
+    st.success("✅ Transcription terminée !")
+    st.subheader("Texte transcrit :")
+    st.write(result["text"])
